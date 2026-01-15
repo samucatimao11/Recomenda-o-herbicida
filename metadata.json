@@ -1,0 +1,5 @@
+{
+  "name": "Smart Recomendação Agrícola",
+  "description": "Ferramenta de apoio à decisão para recomendação de defensivos agrícolas baseada em dados de planilha.",
+  "requestFramePermissions": []
+}
