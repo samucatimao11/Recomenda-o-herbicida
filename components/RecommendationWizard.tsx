@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { SpreadsheetRow, AgriculturalInput, SelectedPlot, RecommendationSummary } from '../types';
-import { Search, Calculator, Plus, Trash2, CheckCircle, ArrowRight, ArrowLeft, Edit2, X, Check, FileStack, Settings, Droplets, Fuel, Hash, AlertTriangle, MapPin, Mail, Send, Loader2 } from 'lucide-react';
+import { Search, Calculator, Plus, Trash2, ArrowRight, ArrowLeft, Edit2, Check, FileStack, Settings, Droplets, Fuel, Hash, AlertTriangle, MapPin, Send, Loader2, CopyPlus } from 'lucide-react';
 import { generateRecommendationPDF } from '../services/pdfService';
 
 interface RecommendationWizardProps {
@@ -56,7 +56,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
   const [inputs, setInputs] = useState<AgriculturalInput[]>([]);
   const [currentInput, setCurrentInput] = useState<Partial<AgriculturalInput>>({ name: '', dose: 0, unit: 'L/ha' });
 
-  // Email State
+  // Email State (Background)
   const [emailTo, setEmailTo] = useState('Samuel.franco11@hotmail.com');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
@@ -229,19 +229,42 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
     };
   };
 
+  // Reseta TUDO para uma nova recomendação "do zero"
   const handleAddToQueue = () => {
     const summary = buildCurrentSummary();
     setReportQueue(prev => [...prev, summary]);
+    
+    // Reseta localização
     setSectorInput('');
     setSectorError('');
     setMatchedRows([]);
     setSelectedPlotIds(new Set());
-    setInputs([]);
     setAreaOverrides({});
+    
+    // Reseta Operacional e Insumos
+    setInputs([]);
     setCostCenter('');
     setOpCode('');
     setFlowRate('');
     setTankCapacity('');
+    
+    setStep(1);
+  };
+
+  // Adiciona à fila mas MANTÉM os insumos e dados operacionais para o próximo setor
+  const handleAddSameInputs = () => {
+    const summary = buildCurrentSummary();
+    setReportQueue(prev => [...prev, summary]);
+
+    // Reseta APENAS a localização (Setor e Talhões)
+    setSectorInput('');
+    setSectorError('');
+    setMatchedRows([]);
+    setSelectedPlotIds(new Set());
+    setAreaOverrides({});
+    
+    // NOTA: inputs, costCenter, opCode, flowRate, tankCapacity NÃO SÃO RESETADOS
+    
     setStep(1);
   };
 
@@ -366,6 +389,19 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                   ))}
                 </div>
               </div>
+            )}
+            
+            {/* Informational Box for Copied Inputs */}
+            {inputs.length > 0 && (
+               <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 animate-in slide-in-from-top-2">
+                 <div className="flex items-center gap-2 mb-2">
+                   <CopyPlus className="w-5 h-5 text-orange-600" />
+                   <h4 className="text-sm font-bold text-orange-800">Modo Mesma Calda Ativo</h4>
+                 </div>
+                 <p className="text-xs text-orange-700">
+                   Os dados operacionais e os <strong>{inputs.length} produtos</strong> da recomendação anterior serão aplicados automaticamente ao próximo setor selecionado.
+                 </p>
+               </div>
             )}
           </div>
         )}
@@ -591,7 +627,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
            </div>
         )}
 
-        {/* STEP 4: SUMMARY & EMAIL */}
+        {/* STEP 4: SUMMARY (Email Config Removed) */}
         {step === 4 && (
            <div className="flex flex-col gap-4 animate-in slide-in-from-right-4 duration-300">
               <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-yellow-900 flex items-start text-xs leading-relaxed font-medium">
@@ -619,47 +655,8 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                    </div>
                  </div>
                </div>
-
-               {/* Email Configuration Section */}
-               <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-                  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Mail className="w-4 h-4" /> Envio por E-mail
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-xs font-bold text-gray-600 mb-1 block">Para</label>
-                      <input 
-                        type="email"
-                        value={emailTo}
-                        onChange={e => setEmailTo(e.target.value)}
-                        className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 placeholder:text-gray-400"
-                        placeholder="email@exemplo.com"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-gray-600 mb-1 block">Assunto</label>
-                      <input 
-                        type="text"
-                        value={emailSubject}
-                        onChange={e => setEmailSubject(e.target.value)}
-                        className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 placeholder:text-gray-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-gray-600 mb-1 block">Mensagem</label>
-                      <textarea 
-                        rows={4}
-                        value={emailBody}
-                        onChange={e => setEmailBody(e.target.value)}
-                        className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 placeholder:text-gray-400 resize-none"
-                      />
-                    </div>
-                    <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-lg border border-blue-100 flex items-center">
-                       <CheckCircle className="w-4 h-4 mr-2" />
-                       Uma cópia será enviada automaticamente para Samuel.franco11@hotmail.com
-                    </div>
-                  </div>
-               </div>
+               
+               {/* Seção de Email removida conforme solicitado */}
            </div>
         )}
 
@@ -704,14 +701,27 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
 
           {step === 4 && (
             <>
+              {/* Botão: Novo Setor (Limpar Dados) */}
               <button 
                onClick={handleAddToQueue}
-               className="px-4 py-3.5 bg-blue-50 text-blue-800 rounded-xl font-bold border border-blue-200 active:bg-blue-100 disabled:opacity-50"
-               title="Adicionar Outro"
+               className="px-4 py-3.5 bg-gray-100 text-gray-600 rounded-xl font-bold border border-gray-200 active:bg-gray-200 disabled:opacity-50"
+               title="Adicionar Outro Setor (Nova Calda)"
                disabled={isSending}
              >
                <Plus className="w-6 h-6" />
              </button>
+
+             {/* Botão: Novo Setor (Mesma Calda) */}
+             <button 
+               onClick={handleAddSameInputs}
+               className="px-4 py-3.5 bg-blue-50 text-blue-800 rounded-xl font-bold border border-blue-200 active:bg-blue-100 disabled:opacity-50 flex items-center gap-2"
+               title="Adicionar Setor com Mesma Calda"
+               disabled={isSending}
+             >
+               <CopyPlus className="w-6 h-6" />
+               <span className="hidden sm:inline text-sm">Mesma Calda</span>
+             </button>
+
              <button 
                onClick={handleFinalize} 
                disabled={isSending}
@@ -724,7 +734,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                  </>
                ) : (
                  <>
-                   Finalizar e Enviar
+                   Finalizar
                    <Send className="w-5 h-5 ml-2" />
                  </>
                )}
