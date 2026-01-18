@@ -1,9 +1,9 @@
-const CACHE_NAME = 'smart-agricola-v1';
+const CACHE_NAME = 'smart-agricola-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
-  'https://cdn-icons-png.flaticon.com/512/628/628283.png',
+  'https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/LOGO.png',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
 ];
@@ -44,7 +44,8 @@ self.addEventListener('fetch', (event) => {
 
   // 1. Estratégia Network Only para APIs (Supabase, Cloud Functions)
   // Não queremos cachear dados da planilha ou chamadas de envio de email
-  if (url.href.includes('supabase.co') || url.href.includes('cloudfunctions.net')) {
+  // Nota: O logo do Supabase está em ASSETS_TO_CACHE, então ele será pego pelo cache first abaixo se a URL corresponder
+  if ((url.href.includes('supabase.co') && !url.href.includes('LOGO.png')) || url.href.includes('cloudfunctions.net')) {
     return;
   }
 

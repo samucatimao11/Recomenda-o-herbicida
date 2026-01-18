@@ -3,12 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#16A34A" />
+    <meta name="theme-color" content="#052D51" />
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Smart Recomendação Agrícola</title>
+    <title>Smart Calda - Solicitação de KPI</title>
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/628/628283.png">
+    <link rel="apple-touch-icon" href="https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/LOGO.png">
+    <link rel="icon" type="image/png" href="https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/LOGO.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
@@ -19,23 +20,31 @@
               sans: ['Inter', 'sans-serif'],
             },
             colors: {
+              brand: {
+                blue: '#052D51',  // Primary Dark (Sidebar, Headings)
+                green: '#76B72A', // Primary Action (Buttons, Highlights)
+                slate: '#4B5F73', // Secondary Text (Subtitles)
+                yellow: '#EABA00', // Accents/Warnings
+              },
+              // Remapeando a escala 'agro' para orbitar o novo Verde (#76B72A)
+              // para manter compatibilidade com classes existentes mas com a nova cor.
               agro: {
-                50: '#F0FDF4', // Very light mint
-                100: '#DCFCE7',
-                200: '#BBF7D0',
-                300: '#86EFAC',
-                400: '#4ADE80',
-                500: '#22C55E',
-                600: '#16A34A', // Primary accessible green
-                700: '#15803D', // Hover / Darker
-                800: '#166534', // Deep Text
-                900: '#14532D', // Very Deep
-                950: '#052E16',
+                50: '#F4FBE7', 
+                100: '#E4F6C8',
+                200: '#CBEAA0',
+                300: '#ADDD73',
+                400: '#90CE4B',
+                500: '#76B72A', // A cor solicitada como base
+                600: '#5D9320', // Um pouco mais escuro para hover
+                700: '#477118',
+                800: '#355314',
+                900: '#253B0E',
+                950: '#132005',
               }
             },
             boxShadow: {
-              'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.08)', // Slightly darker shadow
-              'up': '0 -4px 20px -2px rgba(0, 0, 0, 0.08)',
+              'soft': '0 4px 20px -2px rgba(5, 45, 81, 0.08)', // Shadow using brand blue
+              'up': '0 -4px 20px -2px rgba(5, 45, 81, 0.08)',
             }
           }
         }
@@ -64,8 +73,9 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #94a3b8;
+    background: #4B5F73;
     border-radius: 3px;
+    opacity: 0.5;
   }
   /* Remove highlight on mobile tap */
   * {
@@ -78,7 +88,7 @@
   }
 </style>
 </head>
-  <body class="bg-gray-100 text-gray-900 font-sans antialiased selection:bg-agro-200 selection:text-agro-900">
+  <body class="bg-gray-100 text-brand-blue font-sans antialiased selection:bg-brand-green selection:text-white">
     <div id="root"></div>
     <script>
       if ('serviceWorker' in navigator) {

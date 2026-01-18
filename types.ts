@@ -31,6 +31,10 @@ export interface RecommendationSummary {
   operationCode: string;
   flowRate: string;
   tankCapacity: string;
+  supervisor: string; // Novo campo
+  
+  // Multiplier logic
+  areaFactor?: number;
 }
 
 export type ViewState = 'IMPORT' | 'NEW_RECOMMENDATION' | 'HISTORY' | 'SUCCESS_SENT';

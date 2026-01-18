@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { SpreadsheetRow, AgriculturalInput, SelectedPlot, RecommendationSummary } from '../types';
-import { Search, Calculator, Plus, Trash2, ArrowRight, ArrowLeft, Edit2, Check, FileStack, Settings, Droplets, Fuel, Hash, AlertTriangle, MapPin, Send, Loader2, CopyPlus } from 'lucide-react';
+import { Search, Calculator, Plus, Trash2, ArrowRight, ArrowLeft, Edit2, Check, FileStack, Settings, Droplets, Fuel, Hash, AlertTriangle, MapPin, Send, Loader2, CopyPlus, UserCircle2, XCircle } from 'lucide-react';
 import { generateRecommendationPDF } from '../services/pdfService';
 
 interface RecommendationWizardProps {
@@ -28,6 +28,13 @@ const COST_CENTERS = [
   "5117 – Plantio"
 ];
 
+const SUPERVISORS = [
+  "21479 - VICTOR AUGUSTO CARVALHO",
+  "27542 - RAFAEL VINICIUS NEVES",
+  "1867 - SIDINEI DA MATA MEDEIROS",
+  "20720 - JOSE COSTA DE OLIVEIRA JUNIOR"
+];
+
 const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onComplete, onCancel }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -46,12 +53,16 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
   const [areaOverrides, setAreaOverrides] = useState<Record<string | number, number>>({});
   const [editingPlotId, setEditingPlotId] = useState<string | number | null>(null);
   const [tempEditValue, setTempEditValue] = useState<string>('');
+  
+  // New: Global Area Multiplier
+  const [areaMultiplier, setAreaMultiplier] = useState<string>('1');
 
   // Operational Fields State
   const [costCenter, setCostCenter] = useState('');
   const [opCode, setOpCode] = useState('');
   const [flowRate, setFlowRate] = useState('');
   const [tankCapacity, setTankCapacity] = useState('');
+  const [supervisor, setSupervisor] = useState('');
 
   const [inputs, setInputs] = useState<AgriculturalInput[]>([]);
   const [currentInput, setCurrentInput] = useState<Partial<AgriculturalInput>>({ name: '', dose: 0, unit: 'L/ha' });
@@ -122,7 +133,8 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
 
     setMatchedRows(matches);
     setSectorError('');
-    setAreaOverrides({}); 
+    setAreaOverrides({});
+    setAreaMultiplier('1'); // Reset multiplier on new search
     setStep(2);
   };
 
@@ -142,14 +154,20 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
   }, [matchedRows]);
 
   const getEffectiveArea = (plot: SelectedPlot) => {
-    return areaOverrides[plot.id] !== undefined ? areaOverrides[plot.id] : plot.area;
+    // If there's a manual override, use it absolutely.
+    if (areaOverrides[plot.id] !== undefined) {
+      return areaOverrides[plot.id];
+    }
+    // Otherwise, apply the global multiplier to the base area.
+    const mult = parseFloat(areaMultiplier.replace(',', '.')) || 1;
+    return plot.area * mult;
   };
 
   const selectedTotalArea = useMemo(() => {
     return availablePlots
       .filter(p => selectedPlotIds.has(p.id))
       .reduce((acc, curr) => acc + getEffectiveArea(curr), 0);
-  }, [availablePlots, selectedPlotIds, areaOverrides]);
+  }, [availablePlots, selectedPlotIds, areaOverrides, areaMultiplier]);
 
   // --- AREA EDITING HANDLERS ---
   const startEditing = (e: React.MouseEvent, plot: SelectedPlot) => {
@@ -210,6 +228,8 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
     const finalPlots = availablePlots
       .filter(p => selectedPlotIds.has(p.id))
       .map(p => ({ ...p, area: getEffectiveArea(p) }));
+    
+    const currentFactor = parseFloat(areaMultiplier.replace(',', '.')) || 1;
 
     return {
       id: Date.now().toString(),
@@ -225,7 +245,9 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
       costCenter: costCenter || "Não informado",
       operationCode: opCode || "-",
       flowRate: flowRate || "-",
-      tankCapacity: tankCapacity || "-"
+      tankCapacity: tankCapacity || "-",
+      supervisor: supervisor || "Não informado",
+      areaFactor: currentFactor
     };
   };
 
@@ -240,6 +262,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
     setMatchedRows([]);
     setSelectedPlotIds(new Set());
     setAreaOverrides({});
+    setAreaMultiplier('1');
     
     // Reseta Operacional e Insumos
     setInputs([]);
@@ -247,6 +270,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
     setOpCode('');
     setFlowRate('');
     setTankCapacity('');
+    setSupervisor('');
     
     setStep(1);
   };
@@ -262,8 +286,9 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
     setMatchedRows([]);
     setSelectedPlotIds(new Set());
     setAreaOverrides({});
+    setAreaMultiplier('1');
     
-    // NOTA: inputs, costCenter, opCode, flowRate, tankCapacity NÃO SÃO RESETADOS
+    // NOTA: inputs, costCenter, opCode, flowRate, tankCapacity e supervisor NÃO SÃO RESETADOS
     
     setStep(1);
   };
@@ -328,15 +353,15 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
       {/* Mobile-optimized Header/Stepper */}
       <div className="bg-white px-5 py-4 border-b border-gray-200 shadow-sm sticky top-0 z-20">
         <div className="flex justify-between items-center mb-2">
-           <h2 className="text-lg font-bold text-gray-900">
+           <h2 className="text-lg font-bold text-brand-blue">
              {step === 1 ? 'Busca' : step === 2 ? 'Talhões' : step === 3 ? 'Aplicação' : 'Resumo'}
-             {reportQueue.length > 0 && step === 1 && <span className="text-xs font-bold text-blue-700 ml-2 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Setor #{reportQueue.length + 1}</span>}
+             {reportQueue.length > 0 && step === 1 && <span className="text-xs font-bold text-brand-blue ml-2 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Setor #{reportQueue.length + 1}</span>}
            </h2>
-           <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200">Passo {step} de 4</span>
+           <span className="text-xs font-bold text-brand-slate bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200">Passo {step} de 4</span>
         </div>
         <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
           <div 
-            className="h-full bg-agro-600 transition-all duration-500 ease-out" 
+            className="h-full bg-brand-blue transition-all duration-500 ease-out" 
             style={{ width: `${(step / 4) * 100}%` }}
           />
         </div>
@@ -348,20 +373,20 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
         {step === 1 && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-              <label className="block text-sm font-bold text-gray-700 mb-2">Qual o número do setor?</label>
+              <label className="block text-sm font-bold text-brand-blue mb-2">Qual o número do setor?</label>
               <div className="relative">
                 <input 
                   type="number" 
                   inputMode="numeric"
                   value={sectorInput}
                   onChange={(e) => setSectorInput(e.target.value)}
-                  className="w-full pl-4 pr-12 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-agro-500/20 focus:border-agro-600 outline-none transition-all placeholder:text-gray-400 font-medium text-gray-900"
+                  className="w-full pl-4 pr-12 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-brand-blue/20 focus:border-brand-blue outline-none transition-all placeholder:text-gray-400 font-medium text-brand-blue"
                   placeholder="Ex: 12"
                   onKeyDown={(e) => e.key === 'Enter' && handleSearchSector()}
                 />
                 <button 
                   onClick={handleSearchSector}
-                  className="absolute right-2 top-2 bottom-2 bg-agro-700 text-white px-3 rounded-lg flex items-center justify-center hover:bg-agro-800 active:scale-95 transition-all"
+                  className="absolute right-2 top-2 bottom-2 bg-brand-blue text-white px-3 rounded-lg flex items-center justify-center hover:bg-[#042440] active:scale-95 transition-all"
                 >
                   <Search className="w-5 h-5" />
                 </button>
@@ -375,8 +400,8 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
             </div>
 
             {reportQueue.length > 0 && (
-              <div className="bg-white border border-blue-200 rounded-2xl p-5 shadow-sm">
-                <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center">
+              <div className="bg-white border border-brand-blue/20 rounded-2xl p-5 shadow-sm">
+                <h4 className="text-sm font-bold text-brand-blue mb-3 flex items-center">
                   <FileStack className="w-4 h-4 mr-2" />
                   Itens na Fila ({reportQueue.length})
                 </h4>
@@ -384,7 +409,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                   {reportQueue.map((item, idx) => (
                     <div key={idx} className="bg-blue-50 p-3 rounded-xl border border-blue-200 text-sm flex justify-between shadow-sm">
                       <span className="font-bold text-gray-800">Setor {item.sector}</span>
-                      <span className="text-blue-800 font-semibold">{item.totalArea.toFixed(1)} ha</span>
+                      <span className="text-brand-blue font-semibold">{item.totalArea.toFixed(1)} ha</span>
                     </div>
                   ))}
                 </div>
@@ -393,12 +418,12 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
             
             {/* Informational Box for Copied Inputs */}
             {inputs.length > 0 && (
-               <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 animate-in slide-in-from-top-2">
+               <div className="bg-brand-yellow/10 border border-brand-yellow/30 rounded-2xl p-4 animate-in slide-in-from-top-2">
                  <div className="flex items-center gap-2 mb-2">
-                   <CopyPlus className="w-5 h-5 text-orange-600" />
-                   <h4 className="text-sm font-bold text-orange-800">Modo Mesma Calda Ativo</h4>
+                   <CopyPlus className="w-5 h-5 text-brand-yellow" />
+                   <h4 className="text-sm font-bold text-yellow-800">Modo Mesma Calda Ativo</h4>
                  </div>
-                 <p className="text-xs text-orange-700">
+                 <p className="text-xs text-yellow-900">
                    Os dados operacionais e os <strong>{inputs.length} produtos</strong> da recomendação anterior serão aplicados automaticamente ao próximo setor selecionado.
                  </p>
                </div>
@@ -412,30 +437,43 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
             {/* Info Card */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
                <div className="flex items-start gap-3 mb-2">
-                 <div className="bg-agro-100 p-2.5 rounded-xl">
-                   <MapPin className="w-5 h-5 text-agro-700" />
+                 <div className="bg-brand-blue/10 p-2.5 rounded-xl">
+                   <MapPin className="w-5 h-5 text-brand-blue" />
                  </div>
                  <div>
-                   <h3 className="font-bold text-gray-900 text-lg leading-tight">{displayFarm}</h3>
-                   <p className="text-sm text-gray-600 font-medium">Unidade: {getSafeValue(contextRow, COLS_UNIDADE) || "-"}</p>
+                   <h3 className="font-bold text-brand-blue text-lg leading-tight">{displayFarm}</h3>
+                   <p className="text-sm text-brand-slate font-medium">Unidade: {getSafeValue(contextRow, COLS_UNIDADE) || "-"}</p>
                  </div>
                </div>
                <div className="grid grid-cols-2 gap-3 mt-4">
                  <div className="bg-gray-50 border border-gray-200 p-3 rounded-xl">
-                   <span className="text-xs text-gray-500 font-bold uppercase block mb-1">Seção</span>
-                   <span className="text-sm font-bold text-gray-900">{getSafeValue(contextRow, COLS_SECAO) || "-"}</span>
+                   <span className="text-xs text-brand-slate font-bold uppercase block mb-1">Seção</span>
+                   <span className="text-sm font-bold text-brand-blue">{getSafeValue(contextRow, COLS_SECAO) || "-"}</span>
                  </div>
                  <div className="bg-gray-50 border border-gray-200 p-3 rounded-xl">
-                   <span className="text-xs text-gray-500 font-bold uppercase block mb-1">Estágio</span>
-                   <span className="text-sm font-bold text-gray-900">{getSafeValue(contextRow, COLS_ESTAGIO) || "-"}</span>
+                   <span className="text-xs text-brand-slate font-bold uppercase block mb-1">Estágio</span>
+                   <span className="text-sm font-bold text-brand-blue">{getSafeValue(contextRow, COLS_ESTAGIO) || "-"}</span>
                  </div>
                </div>
             </div>
 
-            {/* Selection Header */}
-            <div className="flex justify-between items-end px-1">
-              <h3 className="font-bold text-gray-900 text-lg">Talhões</h3>
-              <button onClick={handleSelectAllPlots} className="text-sm text-agro-700 font-bold py-2 px-3 bg-agro-50 hover:bg-agro-100 rounded-lg border border-agro-200 transition-colors">
+            {/* Selection Header & Multiplier */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-1">
+              <div className="flex-1">
+                 <h3 className="font-bold text-brand-blue text-lg mb-2">Talhões</h3>
+                 <div className="flex items-center gap-2 bg-brand-blue/5 p-2 rounded-lg border border-brand-blue/10 w-fit">
+                    <span className="text-xs font-bold text-brand-slate">Fator de Área (x):</span>
+                    <input 
+                      type="number" 
+                      step="0.1" 
+                      min="0"
+                      value={areaMultiplier}
+                      onChange={(e) => setAreaMultiplier(e.target.value)}
+                      className="w-16 p-1 text-center font-bold text-brand-blue bg-white border border-gray-300 rounded focus:ring-2 focus:ring-brand-blue outline-none"
+                    />
+                 </div>
+              </div>
+              <button onClick={handleSelectAllPlots} className="text-sm text-brand-blue font-bold py-2.5 px-4 bg-white hover:bg-gray-50 rounded-lg border border-brand-blue/30 transition-colors shadow-sm whitespace-nowrap">
                 {selectedPlotIds.size === availablePlots.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
               </button>
             </div>
@@ -447,6 +485,11 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                 const isEditing = editingPlotId === plot.id;
                 const effectiveArea = getEffectiveArea(plot);
                 const isOverridden = areaOverrides[plot.id] !== undefined;
+                
+                // Determine display area text
+                let areaText = effectiveArea.toFixed(2);
+                const mult = parseFloat(areaMultiplier.replace(',', '.')) || 1;
+                const isMultiplied = mult !== 1 && !isOverridden;
 
                 return (
                   <div 
@@ -454,15 +497,15 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                     onClick={() => handleTogglePlot(plot.id)}
                     className={`relative p-4 rounded-2xl border-2 transition-all duration-200 active:scale-[0.98]
                       ${isSelected 
-                        ? 'bg-agro-50 border-agro-600 shadow-sm' 
-                        : 'bg-white border-gray-200 shadow-sm hover:border-gray-400'}
+                        ? 'bg-brand-green/5 border-brand-green shadow-sm' 
+                        : 'bg-white border-gray-200 shadow-sm hover:border-brand-slate'}
                     `}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <span className={`text-lg font-bold ${isSelected ? 'text-agro-800' : 'text-gray-700'}`}>
+                      <span className={`text-lg font-bold ${isSelected ? 'text-brand-blue' : 'text-gray-700'}`}>
                         {plot.id}
                       </span>
-                      {isSelected && <div className="bg-agro-600 rounded-full p-0.5"><Check className="w-3 h-3 text-white stroke-[3px]" /></div>}
+                      {isSelected && <div className="bg-brand-green rounded-full p-0.5"><Check className="w-3 h-3 text-white stroke-[3px]" /></div>}
                     </div>
                     
                     {isEditing ? (
@@ -470,7 +513,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                         <input 
                           autoFocus
                           type="number"
-                          className="w-full text-sm p-1 border-2 border-agro-500 rounded bg-white outline-none font-bold text-gray-900"
+                          className="w-full text-sm p-1 border-2 border-brand-green rounded bg-white outline-none font-bold text-brand-blue"
                           value={tempEditValue}
                           onChange={(e) => setTempEditValue(e.target.value)}
                         />
@@ -478,15 +521,33 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                       </div>
                     ) : (
                       <div className="flex items-center justify-between">
-                         <span className={`text-sm font-bold ${isOverridden ? 'text-blue-700' : 'text-gray-600'}`}>
-                           {effectiveArea.toFixed(2)} ha
-                         </span>
-                         <button 
-                           onClick={(e) => startEditing(e, plot)}
-                           className={`p-1.5 rounded-full transition-colors ${isOverridden ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
-                         >
-                           <Edit2 className="w-3.5 h-3.5" />
-                         </button>
+                         <div className="flex flex-col">
+                             <span className={`text-sm font-bold ${isOverridden || isMultiplied ? 'text-brand-blue' : 'text-brand-slate'}`}>
+                               {areaText} ha
+                             </span>
+                             {(isOverridden || isMultiplied) && (
+                                <span className="text-[10px] text-gray-400 font-medium">
+                                   Original: {plot.area.toFixed(2)}
+                                </span>
+                             )}
+                         </div>
+                         <div className="flex gap-1">
+                             {isOverridden && (
+                               <button 
+                                 onClick={(e) => { e.stopPropagation(); const n = {...areaOverrides}; delete n[plot.id]; setAreaOverrides(n); }} 
+                                 className="p-1.5 rounded-full text-red-400 hover:bg-red-50"
+                                 title="Restaurar valor original"
+                               >
+                                 <XCircle className="w-3.5 h-3.5" />
+                               </button>
+                             )}
+                             <button 
+                               onClick={(e) => startEditing(e, plot)}
+                               className={`p-1.5 rounded-full transition-colors ${isOverridden ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-brand-blue hover:bg-gray-100'}`}
+                             >
+                               <Edit2 className="w-3.5 h-3.5" />
+                             </button>
+                         </div>
                       </div>
                     )}
                   </div>
@@ -503,18 +564,36 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
            <div className="flex flex-col gap-5 animate-in slide-in-from-right-4 duration-300">
               {/* Ops Card */}
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-brand-slate uppercase tracking-wider mb-4 flex items-center gap-2">
                   <Settings className="w-4 h-4" /> Operacional
                 </h3>
                 
                 <div className="space-y-4">
+                  {/* Supervisor Field (New) */}
                   <div>
-                    <label className="text-sm font-bold text-gray-800 mb-1 block">Centro de Custos</label>
+                    <label className="text-sm font-bold text-brand-blue mb-1 block flex items-center">
+                      <UserCircle2 className="w-4 h-4 mr-1.5 text-brand-slate"/> Encarregado Responsável
+                    </label>
+                    <div className="relative">
+                      <select 
+                        value={supervisor}
+                        onChange={(e) => setSupervisor(e.target.value)}
+                        className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue focus:border-brand-blue appearance-none"
+                      >
+                        <option value="">Selecione...</option>
+                        {SUPERVISORS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                      <div className="absolute right-3 top-4 pointer-events-none text-gray-600">▼</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-bold text-brand-blue mb-1 block">Centro de Custos</label>
                     <div className="relative">
                       <select 
                         value={costCenter}
                         onChange={(e) => setCostCenter(e.target.value)}
-                        className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 focus:border-agro-500 appearance-none"
+                        className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue focus:border-brand-blue appearance-none"
                       >
                         <option value="">Selecione...</option>
                         {COST_CENTERS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -525,33 +604,33 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
 
                   <div className="grid grid-cols-2 gap-4">
                      <div>
-                       <label className="text-xs font-bold text-gray-600 mb-1 block flex items-center"><Hash className="w-3 h-3 mr-1"/> Cód. Op.</label>
+                       <label className="text-xs font-bold text-brand-slate mb-1 block flex items-center"><Hash className="w-3 h-3 mr-1"/> Cód. Op.</label>
                        <input 
                          type="text"
                          value={opCode}
                          onChange={(e) => setOpCode(e.target.value)}
-                         className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 placeholder:text-gray-400"
+                         className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue placeholder:text-gray-400"
                          placeholder="1234"
                        />
                      </div>
                      <div>
-                       <label className="text-xs font-bold text-gray-600 mb-1 block flex items-center"><Droplets className="w-3 h-3 mr-1"/> Vazão</label>
+                       <label className="text-xs font-bold text-brand-slate mb-1 block flex items-center"><Droplets className="w-3 h-3 mr-1"/> Vazão</label>
                        <input 
                          type="text"
                          value={flowRate}
                          onChange={(e) => setFlowRate(e.target.value)}
-                         className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 placeholder:text-gray-400"
+                         className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue placeholder:text-gray-400"
                          placeholder="L/ha"
                        />
                      </div>
                   </div>
                   <div>
-                     <label className="text-xs font-bold text-gray-600 mb-1 block flex items-center"><Fuel className="w-3 h-3 mr-1"/> Tanque (L)</label>
+                     <label className="text-xs font-bold text-brand-slate mb-1 block flex items-center"><Fuel className="w-3 h-3 mr-1"/> Tanque (L)</label>
                      <input 
                        type="text"
                        value={tankCapacity}
                        onChange={(e) => setTankCapacity(e.target.value)}
-                       className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 placeholder:text-gray-400"
+                       className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue placeholder:text-gray-400"
                        placeholder="Capacidade total"
                      />
                   </div>
@@ -560,13 +639,13 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
 
               {/* Inputs Card */}
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-                 <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                 <h3 className="text-sm font-bold text-brand-slate uppercase tracking-wider mb-4 flex items-center gap-2">
                    <Plus className="w-4 h-4" /> Defensivos
                  </h3>
 
                  <div className="space-y-3 mb-6">
                     <input 
-                       className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 placeholder:text-gray-400"
+                       className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue placeholder:text-gray-400"
                        value={currentInput.name}
                        onChange={e => setCurrentInput({...currentInput, name: e.target.value})}
                        placeholder="Nome do Produto"
@@ -575,7 +654,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                        <div className="col-span-8">
                            <input 
                              type="number"
-                             className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500 placeholder:text-gray-400"
+                             className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue placeholder:text-gray-400"
                              value={currentInput.dose || ''}
                              onChange={e => setCurrentInput({...currentInput, dose: parseFloat(e.target.value)})}
                              placeholder="Dose"
@@ -583,7 +662,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                        </div>
                        <div className="col-span-4">
                            <select 
-                             className="w-full h-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-agro-500"
+                             className="w-full h-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue"
                              value={currentInput.unit}
                              onChange={e => setCurrentInput({...currentInput, unit: e.target.value})}
                            >
@@ -597,7 +676,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                     <button 
                       onClick={handleAddInput}
                       disabled={!currentInput.name || !currentInput.dose}
-                      className="w-full bg-gray-600 text-white py-3.5 rounded-xl font-bold active:scale-[0.98] transition-transform disabled:opacity-50 hover:bg-gray-700"
+                      className="w-full bg-brand-blue text-white py-3.5 rounded-xl font-bold active:scale-[0.98] transition-transform disabled:opacity-50 hover:bg-[#042440]"
                     >
                       Adicionar
                     </button>
@@ -606,13 +685,13 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                  {/* List */}
                  <div className="space-y-3">
                    {inputs.map(input => (
-                     <div key={input.id} className="flex justify-between items-center bg-agro-50 p-3 rounded-xl border border-agro-200">
+                     <div key={input.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
                        <div>
-                         <p className="font-bold text-gray-900 text-sm">{input.name}</p>
-                         <p className="text-xs text-gray-600 font-medium mt-0.5">{input.dose} {input.unit} x {selectedTotalArea.toFixed(1)}ha</p>
+                         <p className="font-bold text-brand-blue text-sm">{input.name}</p>
+                         <p className="text-xs text-brand-slate font-medium mt-0.5">{input.dose} {input.unit} x {selectedTotalArea.toFixed(1)}ha</p>
                        </div>
                        <div className="flex items-center gap-3">
-                         <span className="font-bold text-agro-800 text-base">
+                         <span className="font-bold text-brand-blue text-base">
                            {(input.dose * selectedTotalArea).toFixed(1)} <span className="text-xs">{input.unit.split('/')[0]}</span>
                          </span>
                          <button onClick={() => handleRemoveInput(input.id)} className="text-red-600 p-2 hover:bg-red-50 rounded-lg">
@@ -630,26 +709,27 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
         {/* STEP 4: SUMMARY (Email Config Removed) */}
         {step === 4 && (
            <div className="flex flex-col gap-4 animate-in slide-in-from-right-4 duration-300">
-              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-yellow-900 flex items-start text-xs leading-relaxed font-medium">
-                 <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5 text-yellow-600" />
+              <div className="bg-brand-yellow/10 border border-brand-yellow/30 p-4 rounded-xl text-yellow-900 flex items-start text-xs leading-relaxed font-medium">
+                 <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5 text-brand-yellow" />
                  <p>“Esta recomendação é uma ferramenta de apoio à decisão e não substitui o receituário agronômico.”</p>
                </div>
 
                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                  <div className="bg-gray-50 p-5 border-b border-gray-200 grid grid-cols-2 gap-y-4 text-sm">
-                    <div><span className="text-gray-500 text-xs font-bold uppercase block mb-1">Fazenda</span><span className="font-bold text-gray-900 text-base">{displayFarm}</span></div>
-                    <div><span className="text-gray-500 text-xs font-bold uppercase block mb-1">Setor</span><span className="font-bold text-gray-900 text-base">{sectorInput}</span></div>
-                    <div><span className="text-gray-500 text-xs font-bold uppercase block mb-1">Área Total</span><span className="font-bold text-agro-700 text-base">{selectedTotalArea.toFixed(2)} ha</span></div>
-                    <div><span className="text-gray-500 text-xs font-bold uppercase block mb-1">Talhões</span><span className="font-bold text-gray-900 text-base">{availablePlots.filter(p => selectedPlotIds.has(p.id)).length}</span></div>
+                    <div><span className="text-brand-slate text-xs font-bold uppercase block mb-1">Fazenda</span><span className="font-bold text-brand-blue text-base">{displayFarm}</span></div>
+                    <div><span className="text-brand-slate text-xs font-bold uppercase block mb-1">Setor</span><span className="font-bold text-brand-blue text-base">{sectorInput}</span></div>
+                    <div><span className="text-brand-slate text-xs font-bold uppercase block mb-1">Área Total</span><span className="font-bold text-brand-blue text-base">{selectedTotalArea.toFixed(2)} ha</span></div>
+                    <div><span className="text-brand-slate text-xs font-bold uppercase block mb-1">Talhões</span><span className="font-bold text-brand-blue text-base">{availablePlots.filter(p => selectedPlotIds.has(p.id)).length}</span></div>
+                    <div className="col-span-2"><span className="text-brand-slate text-xs font-bold uppercase block mb-1">Encarregado</span><span className="font-bold text-brand-blue text-sm">{supervisor || "Não informado"}</span></div>
                  </div>
                  
                  <div className="p-5">
-                   <h4 className="text-xs font-bold text-gray-500 uppercase mb-4 tracking-wider">Produtos Calculados</h4>
+                   <h4 className="text-xs font-bold text-brand-slate uppercase mb-4 tracking-wider">Produtos Calculados</h4>
                    <div className="space-y-3">
                      {inputs.map(input => (
                        <div key={input.id} className="flex justify-between items-center text-sm border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-                         <span className="text-gray-800 font-medium">{input.name}</span>
-                         <span className="font-bold text-gray-900 text-base">{(input.dose * selectedTotalArea).toFixed(2)} {input.unit.split('/')[0]}</span>
+                         <span className="text-brand-blue font-medium">{input.name}</span>
+                         <span className="font-bold text-brand-blue text-base">{(input.dose * selectedTotalArea).toFixed(2)} {input.unit.split('/')[0]}</span>
                        </div>
                      ))}
                    </div>
@@ -668,7 +748,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
           {step > 1 && (
              <button 
                onClick={() => setStep(s => Math.max(1, s - 1) as any)} 
-               className="px-5 py-3.5 rounded-xl border-2 border-gray-300 text-gray-700 font-bold active:bg-gray-50 transition-colors"
+               className="px-5 py-3.5 rounded-xl border-2 border-gray-300 text-brand-slate font-bold active:bg-gray-50 transition-colors"
                disabled={isSending}
              >
                <ArrowLeft className="w-6 h-6" />
@@ -676,14 +756,14 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
           )}
 
           {step === 1 && (
-            <button onClick={onCancel} className="flex-1 py-3.5 text-gray-500 font-bold">Cancelar</button>
+            <button onClick={onCancel} className="flex-1 py-3.5 text-brand-slate font-bold">Cancelar</button>
           )}
 
           {step < 3 && step !== 1 && (
              <button 
                onClick={() => setStep(s => s + 1 as any)} 
                disabled={step === 2 && selectedPlotIds.size === 0}
-               className="flex-1 bg-agro-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-agro-800/20 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center hover:bg-agro-800"
+               className="flex-1 bg-brand-blue text-white py-3.5 rounded-xl font-bold shadow-lg shadow-brand-blue/20 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center hover:bg-[#042440]"
              >
                {step === 2 ? `Confirmar (${selectedTotalArea.toFixed(1)} ha)` : 'Próximo'} 
                <ArrowRight className="w-5 h-5 ml-2" />
@@ -693,7 +773,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
           {step === 3 && (
             <button 
                onClick={() => setStep(4)} 
-               className="flex-1 bg-agro-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-agro-800/20 active:scale-95 transition-all flex items-center justify-center hover:bg-agro-800"
+               className="flex-1 bg-brand-blue text-white py-3.5 rounded-xl font-bold shadow-lg shadow-brand-blue/20 active:scale-95 transition-all flex items-center justify-center hover:bg-[#042440]"
              >
                Revisar <Calculator className="w-5 h-5 ml-2" />
              </button>
@@ -704,7 +784,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
               {/* Botão: Novo Setor (Limpar Dados) */}
               <button 
                onClick={handleAddToQueue}
-               className="px-4 py-3.5 bg-gray-100 text-gray-600 rounded-xl font-bold border border-gray-200 active:bg-gray-200 disabled:opacity-50"
+               className="px-4 py-3.5 bg-gray-100 text-brand-slate rounded-xl font-bold border border-gray-200 active:bg-gray-200 disabled:opacity-50"
                title="Adicionar Outro Setor (Nova Calda)"
                disabled={isSending}
              >
@@ -714,7 +794,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
              {/* Botão: Novo Setor (Mesma Calda) */}
              <button 
                onClick={handleAddSameInputs}
-               className="px-4 py-3.5 bg-blue-50 text-blue-800 rounded-xl font-bold border border-blue-200 active:bg-blue-100 disabled:opacity-50 flex items-center gap-2"
+               className="px-4 py-3.5 bg-blue-50 text-brand-blue rounded-xl font-bold border border-blue-200 active:bg-blue-100 disabled:opacity-50 flex items-center gap-2"
                title="Adicionar Setor com Mesma Calda"
                disabled={isSending}
              >
@@ -725,7 +805,7 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
              <button 
                onClick={handleFinalize} 
                disabled={isSending}
-               className="flex-1 bg-green-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-green-800/20 active:scale-95 transition-all flex items-center justify-center hover:bg-green-800 disabled:opacity-70 disabled:cursor-wait"
+               className="flex-1 bg-brand-blue text-white py-3.5 rounded-xl font-bold shadow-lg shadow-brand-blue/20 active:scale-95 transition-all flex items-center justify-center hover:bg-[#042440] disabled:opacity-70 disabled:cursor-wait"
              >
                {isSending ? (
                  <>

@@ -101,29 +101,29 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
     const columns = Object.keys(previewData[0]);
 
     return (
-      <div className="flex flex-col h-full bg-white animate-in slide-in-from-bottom-10 duration-500 rounded-t-3xl md:rounded-2xl shadow-up md:shadow-soft overflow-hidden">
+      <div className="flex flex-col h-full bg-white animate-in slide-in-from-bottom-10 duration-500 rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Preview Header */}
         <div className="p-5 border-b border-gray-200 bg-gray-50/50">
           <div className="flex items-center mb-4">
-            <div className="bg-green-100 p-3 rounded-2xl mr-3 border border-green-200">
-              <FileSpreadsheet className="w-6 h-6 text-green-800" />
+            <div className="bg-brand-blue/10 p-3 rounded-2xl mr-3 border border-brand-blue/20">
+              <FileSpreadsheet className="w-6 h-6 text-brand-blue" />
             </div>
             <div>
-              <h3 className="font-bold text-gray-900 text-lg">Confirmação</h3>
-              <p className="text-xs text-gray-600 font-medium">{fileName} • {previewData.length} linhas</p>
+              <h3 className="font-bold text-brand-blue text-lg">Confirmação</h3>
+              <p className="text-xs text-brand-slate font-medium">{fileName} • {previewData.length} linhas</p>
             </div>
           </div>
           
           <div className="flex gap-3">
             <button 
               onClick={handleCancel}
-              className="flex-1 py-3.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-xl active:bg-gray-50"
+              className="flex-1 py-3.5 text-sm font-bold text-brand-slate bg-white border border-gray-300 rounded-xl active:bg-gray-50"
             >
               Cancelar
             </button>
             <button 
               onClick={handleConfirm}
-              className="flex-1 py-3.5 text-sm font-bold text-white bg-agro-700 rounded-xl shadow-lg shadow-agro-800/20 active:scale-95 transition-all hover:bg-agro-800"
+              className="flex-1 py-3.5 text-sm font-bold text-white bg-brand-blue rounded-xl shadow-lg shadow-brand-blue/20 active:scale-95 transition-all hover:bg-[#042440]"
             >
               Confirmar
             </button>
@@ -133,8 +133,8 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
         {/* Excel-like Table */}
         <div className="flex-1 overflow-auto bg-white p-4">
           <div className="border border-gray-300 rounded-xl overflow-hidden">
-            <table className="min-w-full text-xs text-left text-gray-700 font-medium">
-              <thead className="text-gray-600 uppercase bg-gray-100 font-bold tracking-wider">
+            <table className="min-w-full text-xs text-left text-brand-slate font-medium">
+              <thead className="text-brand-blue uppercase bg-gray-100 font-bold tracking-wider">
                 <tr>
                   {columns.slice(0, 5).map((col) => (
                     <th key={col} className="px-4 py-3 border-b border-gray-300 whitespace-nowrap">
@@ -169,26 +169,56 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
   return (
     <div className="flex flex-col items-center justify-center h-full p-6 animate-in fade-in zoom-in duration-300">
       
-      <div className="relative mb-8">
-        <div className="absolute inset-0 bg-agro-300 blur-xl opacity-30 rounded-full"></div>
-        <div className="relative bg-gradient-to-br from-agro-50 to-white p-6 rounded-3xl shadow-soft border border-agro-100">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-8">
+         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+            <div className="p-3 bg-brand-blue/10 rounded-xl">
+                <FileText className="w-6 h-6 text-brand-blue" />
+            </div>
+            <div>
+                <p className="text-xs text-brand-slate font-bold uppercase">Total Programado</p>
+                <p className="text-xl font-extrabold text-brand-blue">1.675.822<span className="text-sm font-normal text-gray-400">,1L</span></p>
+            </div>
+         </div>
+         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+            <div className="p-3 bg-green-50 rounded-xl border border-green-100">
+                <Check className="w-6 h-6 text-brand-green" />
+            </div>
+            <div>
+                <p className="text-xs text-brand-slate font-bold uppercase">Total Entregue</p>
+                <p className="text-xl font-extrabold text-brand-blue">842.213<span className="text-sm font-normal text-gray-400">,0L</span></p>
+            </div>
+         </div>
+         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+            <div className="p-3 bg-yellow-50 rounded-xl border border-yellow-100">
+                <RefreshCw className="w-6 h-6 text-brand-yellow" />
+            </div>
+            <div>
+                <p className="text-xs text-brand-slate font-bold uppercase">Disponível</p>
+                <p className="text-xl font-extrabold text-brand-blue">707.937<span className="text-sm font-normal text-gray-400">,0L</span></p>
+            </div>
+         </div>
+      </div>
+
+      <div className="relative mb-8 mt-4">
+        <div className="absolute inset-0 bg-brand-blue blur-xl opacity-20 rounded-full"></div>
+        <div className="relative bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
            {loading ? (
-             <CloudDownload className="w-16 h-16 text-agro-600 animate-pulse" />
+             <CloudDownload className="w-16 h-16 text-brand-blue animate-pulse" />
            ) : (
-             <FileText className="w-16 h-16 text-agro-600" />
+             <FileText className="w-16 h-16 text-brand-blue" />
            )}
         </div>
       </div>
       
-      <h2 className="text-2xl font-extrabold text-gray-900 mb-2 text-center">Base de Dados</h2>
+      <h2 className="text-2xl font-extrabold text-brand-blue mb-2 text-center">Sincronizar Cadastros</h2>
       
       {loading ? (
         <div className="flex flex-col items-center mb-10">
-           <p className="text-gray-500 text-center text-sm font-medium mb-2">
+           <p className="text-brand-slate text-center text-sm font-medium mb-2">
              Sincronizando com a base de dados...
            </p>
            <div className="w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-             <div className="h-full bg-agro-600 animate-[loading_1.5s_ease-in-out_infinite]"></div>
+             <div className="h-full bg-brand-blue animate-[loading_1.5s_ease-in-out_infinite]"></div>
            </div>
            <style>{`
              @keyframes loading {
@@ -199,7 +229,7 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
            `}</style>
         </div>
       ) : (
-        <p className="text-gray-500 text-center mb-8 max-w-xs text-sm leading-relaxed font-medium">
+        <p className="text-brand-slate text-center mb-8 max-w-xs text-sm leading-relaxed font-medium">
           Sincronize para baixar a versão mais recente ou faça o upload manual.
         </p>
       )}
@@ -208,7 +238,7 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
       <button 
         onClick={loadDefaultSheet}
         disabled={loading}
-        className="mb-4 w-full max-w-xs flex items-center justify-center gap-2 px-6 py-3.5 bg-white border-2 border-agro-100 text-agro-700 font-bold rounded-2xl shadow-sm hover:bg-agro-50 hover:border-agro-200 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mb-4 w-full max-w-xs flex items-center justify-center gap-2 px-6 py-3.5 bg-white border border-gray-300 text-brand-blue font-bold rounded-xl shadow-sm hover:bg-gray-50 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
         Sincronizar Agora
@@ -216,7 +246,7 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
 
       <div className="relative flex items-center py-4 w-full max-w-xs">
         <div className="flex-grow border-t border-gray-200"></div>
-        <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-bold uppercase tracking-wider">OU</span>
+        <span className="flex-shrink-0 mx-4 text-brand-slate text-xs font-bold uppercase tracking-wider">OU</span>
         <div className="flex-grow border-t border-gray-200"></div>
       </div>
 
@@ -225,15 +255,15 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
           className={`group w-full max-w-xs h-32 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300
             ${loading 
               ? 'bg-gray-50 border-gray-300 opacity-50 cursor-wait' 
-              : 'border-gray-300 bg-white hover:bg-gray-50 hover:border-agro-400 active:scale-95 active:border-agro-600'}
+              : 'border-gray-300 bg-white hover:bg-gray-50 hover:border-brand-blue active:scale-95 active:border-brand-blue'}
           `}
         >
           {loading ? (
-             <span className="text-gray-400 font-bold text-sm">Aguarde...</span>
+             <span className="text-brand-slate font-bold text-sm">Aguarde...</span>
           ) : (
              <>
-               <Upload className="w-6 h-6 text-gray-400 mb-2 group-hover:text-agro-600 transition-colors" />
-               <span className="text-gray-600 font-bold text-sm group-hover:text-agro-700">Upload Manual</span>
+               <Upload className="w-6 h-6 text-brand-slate mb-2 group-hover:text-brand-blue transition-colors" />
+               <span className="text-brand-slate font-bold text-sm group-hover:text-brand-blue">Upload Manual</span>
              </>
           )}
           <input 
