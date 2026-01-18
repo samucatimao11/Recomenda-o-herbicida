@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import ImportView from './components/ImportView';
 import RecommendationWizard from './components/RecommendationWizard';
-import { SpreadsheetRow, ViewState, RecommendationSummary } from './types';
-import { LayoutDashboard, History, FileText, Check, Download, ChevronRight, Menu } from 'lucide-react';
+import StockDashboard from './components/StockDashboard';
+import { SpreadsheetRow, ViewState, RecommendationSummary, StockItem } from './types';
+import { LayoutDashboard, History, FileText, Check, Download, ChevronRight, Menu, Package } from 'lucide-react';
 import { generateRecommendationPDF } from './services/pdfService';
 
-const LOGO_URL = "https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/LOGO.png";
+const LOGO_URL = "https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/logo%20(2).png";
 
 const App: React.FC = () => {
   const [data, setData] = useState<SpreadsheetRow[]>([]);
+  // Novo estado para dados de estoque
+  const [stockData, setStockData] = useState<StockItem[]>([]);
+  
   const [view, setView] = useState<ViewState>('IMPORT');
   
   // History stores lists of lists (each entry is a report with 1+ sectors)
@@ -18,6 +22,10 @@ const App: React.FC = () => {
   const handleDataLoaded = (loadedData: SpreadsheetRow[]) => {
     setData(loadedData);
     setView('NEW_RECOMMENDATION');
+  };
+
+  const handleStockLoaded = (loadedStock: StockItem[]) => {
+    setStockData(loadedStock);
   };
 
   const handleRecommendationComplete = (summaries: RecommendationSummary[]) => {
@@ -78,7 +86,8 @@ const App: React.FC = () => {
 
         <nav className="flex-1 px-4 space-y-1.5">
           {[
-            { id: 'IMPORT', icon: LayoutDashboard, label: 'Painel Geral' },
+            { id: 'IMPORT', icon: LayoutDashboard, label: 'Base de dados' },
+            { id: 'STOCK', icon: Package, label: 'Estoque de Insumos', disabled: stockData.length === 0 },
             { id: 'NEW_RECOMMENDATION', icon: FileText, label: 'Nova Operação', disabled: data.length === 0 },
             { id: 'HISTORY', icon: History, label: 'Histórico O.S', disabled: history.length === 0 },
           ].map((item) => {
@@ -110,10 +119,10 @@ const App: React.FC = () => {
                 className="w-full flex items-center justify-center gap-2 bg-brand-blue text-white py-3.5 rounded-xl font-bold shadow-lg shadow-brand-blue/20 hover:bg-[#042440] active:scale-95 transition-all"
              >
                 <Download className="w-5 h-5" />
-                Importar Cadastros
+                Atualizar Dados
              </button>
              <div className="mt-4 text-center">
-                <p className="text-[10px] text-gray-400 font-medium">v1.6 © Usina Smart</p>
+                <p className="text-[10px] text-gray-400 font-medium">v1.7 © Usina Smart</p>
              </div>
         </div>
       </aside>
@@ -145,26 +154,33 @@ const App: React.FC = () => {
         </header>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto pb-24 md:pb-8 p-4 md:p-8">
+        <div className="flex-1 overflow-y-auto pb-24 md:pb-8 p-0 md:p-8">
           
           {view === 'IMPORT' && (
-            <div className="h-full max-w-5xl mx-auto flex flex-col justify-center">
+            <div className="h-full max-w-5xl mx-auto flex flex-col justify-center p-4 md:p-0">
               <div className="mb-6 md:mb-8 flex items-center justify-between">
                  <div>
-                    <h2 className="text-2xl font-bold text-brand-blue">Painel Geral</h2>
-                    <p className="text-brand-slate text-sm">Visão geral e gestão operacional</p>
+                    <h2 className="text-2xl font-bold text-brand-blue">Base de dados</h2>
+                    <p className="text-brand-slate text-sm">Sincronização de cadastros e estoque</p>
                  </div>
                  <div className="hidden md:flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
                     <div className="w-2 h-2 rounded-full bg-brand-green"></div>
                     <span className="text-xs font-bold text-gray-600">Sistema Online</span>
                  </div>
               </div>
-              <ImportView onDataLoaded={handleDataLoaded} />
+              <ImportView onDataLoaded={handleDataLoaded} onStockLoaded={handleStockLoaded} />
             </div>
           )}
 
+          {view === 'STOCK' && (
+             <StockDashboard 
+                stockData={stockData} 
+                onBack={() => setView('IMPORT')} 
+             />
+          )}
+
           {view === 'NEW_RECOMMENDATION' && (
-            <div className="h-full max-w-4xl mx-auto">
+            <div className="h-full max-w-4xl mx-auto p-4 md:p-0">
                <div className="mb-6">
                     <h2 className="text-2xl font-bold text-brand-blue">Nova Operação</h2>
                     <p className="text-brand-slate text-sm">Preencha os dados para gerar recomendação</p>
@@ -189,6 +205,7 @@ const App: React.FC = () => {
                ) : (
                  <RecommendationWizard 
                    data={data} 
+                   stockData={stockData}
                    onComplete={handleRecommendationComplete}
                    onCancel={() => setView('IMPORT')}
                  />
@@ -224,7 +241,7 @@ const App: React.FC = () => {
           )}
 
           {view === 'HISTORY' && (
-            <div className="max-w-4xl mx-auto pb-20">
+            <div className="max-w-4xl mx-auto pb-20 p-4 md:p-0">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-bold text-brand-blue px-1">Histórico de O.S.</h2>
@@ -291,7 +308,14 @@ const App: React.FC = () => {
               active={view === 'IMPORT'} 
               onClick={() => setView('IMPORT')} 
               icon={LayoutDashboard} 
-              label="Painel" 
+              label="Base" 
+            />
+            <BottomNavItem 
+              active={view === 'STOCK'} 
+              onClick={() => setView('STOCK')} 
+              icon={Package} 
+              label="Estoque"
+              disabled={stockData.length === 0}
             />
             <div className="relative -top-5">
               <button 

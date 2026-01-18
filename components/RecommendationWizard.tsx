@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { SpreadsheetRow, AgriculturalInput, SelectedPlot, RecommendationSummary } from '../types';
-import { Search, Calculator, Plus, Trash2, ArrowRight, ArrowLeft, Edit2, Check, FileStack, Settings, Droplets, Fuel, Hash, AlertTriangle, MapPin, Send, Loader2, CopyPlus, UserCircle2, XCircle } from 'lucide-react';
+import { SpreadsheetRow, AgriculturalInput, SelectedPlot, RecommendationSummary, StockItem } from '../types';
+import { Search, Calculator, Plus, Trash2, ArrowRight, ArrowLeft, Edit2, Check, FileStack, Settings, Droplets, Fuel, Hash, AlertTriangle, MapPin, Send, Loader2, CopyPlus, UserCircle2, XCircle, Package } from 'lucide-react';
 import { generateRecommendationPDF } from '../services/pdfService';
 
 interface RecommendationWizardProps {
   data: SpreadsheetRow[];
+  stockData?: StockItem[]; // Nova prop opcional para dados de estoque
   onComplete: (summaries: RecommendationSummary[]) => void;
   onCancel: () => void;
 }
@@ -35,7 +36,7 @@ const SUPERVISORS = [
   "20720 - JOSE COSTA DE OLIVEIRA JUNIOR"
 ];
 
-const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onComplete, onCancel }) => {
+const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, stockData = [], onComplete, onCancel }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -168,6 +169,29 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
       .filter(p => selectedPlotIds.has(p.id))
       .reduce((acc, curr) => acc + getEffectiveArea(curr), 0);
   }, [availablePlots, selectedPlotIds, areaOverrides, areaMultiplier]);
+
+  // --- STOCK LOOKUP HELPER ---
+  const findStockItem = (name: string): StockItem | undefined => {
+      if (!name || stockData.length === 0) return undefined;
+      const normalize = (s: string) => s.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const search = normalize(name);
+      return stockData.find(s => normalize(s.name) === search);
+  };
+
+  const currentStockItem = currentInput.name ? findStockItem(currentInput.name) : undefined;
+  
+  const calculateStockStatus = (dose: number, item?: StockItem) => {
+      if (!item) return null;
+      const required = dose * selectedTotalArea;
+      const balance = item.balance;
+      const isSufficient = balance >= required;
+      return { required, balance, isSufficient };
+  };
+  
+  const currentStockStatus = useMemo(() => 
+      calculateStockStatus(currentInput.dose || 0, currentStockItem), 
+      [currentInput.dose, currentStockItem, selectedTotalArea]
+  );
 
   // --- AREA EDITING HANDLERS ---
   const startEditing = (e: React.MouseEvent, plot: SelectedPlot) => {
@@ -644,12 +668,22 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                  </h3>
 
                  <div className="space-y-3 mb-6">
-                    <input 
-                       className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue placeholder:text-gray-400"
-                       value={currentInput.name}
-                       onChange={e => setCurrentInput({...currentInput, name: e.target.value})}
-                       placeholder="Nome do Produto"
-                    />
+                    <div className="relative">
+                      <input 
+                        className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl text-brand-blue font-medium focus:ring-2 focus:ring-brand-blue placeholder:text-gray-400"
+                        value={currentInput.name}
+                        onChange={e => setCurrentInput({...currentInput, name: e.target.value})}
+                        placeholder="Nome do Produto"
+                        list="stock-products"
+                      />
+                      {/* Datalist for autocomplete */}
+                      <datalist id="stock-products">
+                         {stockData.map(item => (
+                             <option key={item.id} value={item.name} />
+                         ))}
+                      </datalist>
+                    </div>
+
                     <div className="grid grid-cols-12 gap-3">
                        <div className="col-span-8">
                            <input 
@@ -673,6 +707,33 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
                            </select>
                        </div>
                     </div>
+
+                    {/* Stock Check Visual Indicator */}
+                    {currentStockStatus && (
+                        <div className={`rounded-xl p-3 border text-sm animate-in fade-in slide-in-from-top-1
+                           ${currentStockStatus.isSufficient ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}
+                        `}>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className={`font-bold ${currentStockStatus.isSufficient ? 'text-green-800' : 'text-red-800'}`}>
+                                    {currentStockStatus.isSufficient ? 'Estoque OK' : 'Estoque Insuficiente'}
+                                </span>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Previsão</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                    <span className="block text-gray-500">Saldo Atual</span>
+                                    <span className="font-bold text-gray-800">{currentStockStatus.balance.toLocaleString('pt-BR')} {currentInput.unit?.split('/')[0]}</span>
+                                </div>
+                                <div>
+                                    <span className="block text-gray-500">Necessário</span>
+                                    <span className={`font-bold ${currentStockStatus.isSufficient ? 'text-green-600' : 'text-red-600'}`}>
+                                        {currentStockStatus.required.toFixed(1)} {currentInput.unit?.split('/')[0]}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <button 
                       onClick={handleAddInput}
                       disabled={!currentInput.name || !currentInput.dose}
@@ -684,22 +745,52 @@ const RecommendationWizard: React.FC<RecommendationWizardProps> = ({ data, onCom
 
                  {/* List */}
                  <div className="space-y-3">
-                   {inputs.map(input => (
-                     <div key={input.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
-                       <div>
-                         <p className="font-bold text-brand-blue text-sm">{input.name}</p>
-                         <p className="text-xs text-brand-slate font-medium mt-0.5">{input.dose} {input.unit} x {selectedTotalArea.toFixed(1)}ha</p>
+                   {inputs.map(input => {
+                     // Check stock for added item
+                     const stockItem = findStockItem(input.name);
+                     const totalRequired = input.dose * selectedTotalArea;
+                     const isInsufficient = stockItem ? stockItem.balance < totalRequired : false;
+                     const hasStockData = !!stockItem;
+
+                     return (
+                     <div key={input.id} className="flex flex-col bg-gray-50 p-3 rounded-xl border border-gray-200">
+                       <div className="flex justify-between items-center">
+                           <div>
+                             <p className="font-bold text-brand-blue text-sm">{input.name}</p>
+                             <p className="text-xs text-brand-slate font-medium mt-0.5">{input.dose} {input.unit} x {selectedTotalArea.toFixed(1)}ha</p>
+                           </div>
+                           <div className="flex items-center gap-3">
+                             <span className="font-bold text-brand-blue text-base">
+                               {totalRequired.toFixed(1)} <span className="text-xs">{input.unit.split('/')[0]}</span>
+                             </span>
+                             <button onClick={() => handleRemoveInput(input.id)} className="text-red-600 p-2 hover:bg-red-50 rounded-lg">
+                               <Trash2 className="w-5 h-5" />
+                             </button>
+                           </div>
                        </div>
-                       <div className="flex items-center gap-3">
-                         <span className="font-bold text-brand-blue text-base">
-                           {(input.dose * selectedTotalArea).toFixed(1)} <span className="text-xs">{input.unit.split('/')[0]}</span>
-                         </span>
-                         <button onClick={() => handleRemoveInput(input.id)} className="text-red-600 p-2 hover:bg-red-50 rounded-lg">
-                           <Trash2 className="w-5 h-5" />
-                         </button>
-                       </div>
+                       
+                       {/* Stock warning in list */}
+                       {hasStockData && (
+                           <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-2">
+                               {isInsufficient ? (
+                                   <>
+                                     <AlertTriangle className="w-3 h-3 text-red-500" />
+                                     <span className="text-[10px] font-bold text-red-600">
+                                         Falta no estoque (Saldo: {stockItem?.balance})
+                                     </span>
+                                   </>
+                               ) : (
+                                   <>
+                                     <Package className="w-3 h-3 text-green-600" />
+                                     <span className="text-[10px] font-bold text-green-700">
+                                         Estoque atende (Saldo: {stockItem?.balance})
+                                     </span>
+                                   </>
+                               )}
+                           </div>
+                       )}
                      </div>
-                   ))}
+                   )})}
                    {inputs.length === 0 && <p className="text-center text-sm text-gray-500 italic py-4">Nenhum produto adicionado.</p>}
                  </div>
               </div>

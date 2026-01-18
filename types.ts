@@ -9,6 +9,15 @@ export interface AgriculturalInput {
   unit: string;
 }
 
+export interface StockItem {
+  id: string;
+  name: string;
+  unit: string;
+  total: number;
+  reserved: number;
+  balance: number;
+}
+
 export interface SelectedPlot {
   id: string | number; // Talhão identifier
   area: number; // Área (ha)
@@ -37,4 +46,4 @@ export interface RecommendationSummary {
   areaFactor?: number;
 }
 
-export type ViewState = 'IMPORT' | 'NEW_RECOMMENDATION' | 'HISTORY' | 'SUCCESS_SENT';
+export type ViewState = 'IMPORT' | 'STOCK' | 'NEW_RECOMMENDATION' | 'HISTORY' | 'SUCCESS_SENT';

@@ -1,22 +1,75 @@
 import React, { useRef, useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, AlertCircle, Check, X, FileText, CloudDownload, RefreshCw } from 'lucide-react';
-import { SpreadsheetRow } from '../types';
+import { Upload, FileSpreadsheet, AlertCircle, Check, X, FileText, CloudDownload, RefreshCw, Layers } from 'lucide-react';
+import { SpreadsheetRow, StockItem } from '../types';
 
 interface ImportViewProps {
   onDataLoaded: (data: SpreadsheetRow[]) => void;
+  onStockLoaded: (stock: StockItem[]) => void;
 }
 
 const DEFAULT_DB_URL = "https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/Cadastro_Envio%203%20(1)%20-%20Copia.xlsx";
+const STOCK_DB_URL = "https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/Estoque%20de%20insumos.xlsx";
 
-const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
+const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded, onStockLoaded }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewData, setPreviewData] = useState<SpreadsheetRow[] | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  
+  // Status state for sync process
+  const [syncStatus, setSyncStatus] = useState<string>('');
 
-  // Função centralizada para processar o buffer do arquivo
+  // Helper para normalizar colunas e encontrar valores
+  const getColValue = (row: any, candidates: string[]): any => {
+    const normalize = (s: string) => s.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const keys = Object.keys(row);
+    for (const c of candidates) {
+        const key = keys.find(k => normalize(k) === normalize(c));
+        if (key) return row[key];
+    }
+    return 0; // Default number 0 if not found
+  };
+  
+  const getColString = (row: any, candidates: string[]): string => {
+      const val = getColValue(row, candidates);
+      return val ? String(val) : "Desconhecido";
+  };
+
+  // Processa dados de estoque
+  const processStockData = (data: any[]): StockItem[] => {
+      return data.map((row, index) => {
+          // Mapeamento de colunas flexível
+          const name = getColString(row, ["Insumo", "Produto", "Descricao", "Nome"]);
+          const unit = getColString(row, ["Unidade", "UN", "Und"]);
+          
+          // Tratamento numérico
+          const parseNum = (v: any) => {
+             if (typeof v === 'number') return v;
+             if (typeof v === 'string') return parseFloat(v.replace(',', '.')) || 0;
+             return 0;
+          };
+
+          const total = parseNum(getColValue(row, ["Total em estoque", "Estoque Total", "Total", "Quantidade"]));
+          const reserved = parseNum(getColValue(row, ["Reservado com O.S", "Reservado", "Bloqueado"]));
+          const balance = parseNum(getColValue(row, ["Saldo", "Disponivel"]));
+
+          // Se o Excel não tiver saldo calculado, calcular na mão
+          const finalBalance = (balance === 0 && total > 0) ? (total - reserved) : balance;
+
+          return {
+              id: `stock-${index}`,
+              name,
+              unit,
+              total,
+              reserved,
+              balance: finalBalance
+          };
+      }).filter(item => item.name !== "Desconhecido"); // Remove linhas vazias/cabeçalhos extras
+  };
+
+  // Função centralizada para processar o buffer do arquivo da BASE DE DADOS
   const processExcelBuffer = (buffer: ArrayBuffer, name: string) => {
     try {
       const workbook = XLSX.read(buffer, { type: 'array' });
@@ -39,30 +92,52 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
     }
   };
 
-  // Função para carregar a planilha da nuvem
-  const loadDefaultSheet = async () => {
+  // Função de Sincronização Dupla (Base + Estoque)
+  const loadCloudData = async () => {
     setLoading(true);
     setError(null);
-    setPreviewData(null); // Limpa preview anterior se houver
+    setPreviewData(null); 
     
     try {
-      console.log("Iniciando download da base de dados...");
-      const response = await fetch(DEFAULT_DB_URL);
-      if (!response.ok) {
-         throw new Error(`Erro HTTP: ${response.status}`);
+      console.log("Iniciando download sincronizado...");
+      setSyncStatus("Baixando Base de Cadastros...");
+      
+      const [baseResponse, stockResponse] = await Promise.all([
+         fetch(DEFAULT_DB_URL),
+         fetch(STOCK_DB_URL)
+      ]);
+
+      if (!baseResponse.ok) throw new Error("Falha ao baixar Base de Dados");
+      if (!stockResponse.ok) console.warn("Falha ao baixar Estoque (prosseguindo apenas com base)");
+
+      // Processar Base
+      const baseBuffer = await baseResponse.arrayBuffer();
+      processExcelBuffer(baseBuffer, "Base de Dados Sincronizada");
+
+      // Processar Estoque (se sucesso)
+      if (stockResponse.ok) {
+          setSyncStatus("Processando Estoque...");
+          const stockBuffer = await stockResponse.arrayBuffer();
+          const workbook = XLSX.read(stockBuffer, { type: 'array' });
+          const wsname = workbook.SheetNames[0];
+          const rawStock = XLSX.utils.sheet_to_json(workbook.Sheets[wsname]);
+          const stockItems = processStockData(rawStock);
+          console.log(`Estoque carregado: ${stockItems.length} itens`);
+          onStockLoaded(stockItems);
       }
-      const buffer = await response.arrayBuffer();
-      processExcelBuffer(buffer, "Base de Dados Padrão (Cloud)");
+
     } catch (err) {
-      console.error("Falha no carregamento automático:", err);
-      setError("Não foi possível sincronizar com a base de dados. Verifique sua conexão.");
+      console.error("Falha no carregamento:", err);
+      setError("Não foi possível sincronizar. Verifique a internet.");
       setLoading(false);
+    } finally {
+       setSyncStatus('');
     }
   };
 
   // Carregamento automático ao montar o componente
   useEffect(() => {
-    loadDefaultSheet();
+    loadCloudData();
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,7 +184,7 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
               <FileSpreadsheet className="w-6 h-6 text-brand-blue" />
             </div>
             <div>
-              <h3 className="font-bold text-brand-blue text-lg">Confirmação</h3>
+              <h3 className="font-bold text-brand-blue text-lg">Confirmação da Base</h3>
               <p className="text-xs text-brand-slate font-medium">{fileName} • {previewData.length} linhas</p>
             </div>
           </div>
@@ -169,23 +244,24 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
   return (
     <div className="flex flex-col items-center justify-center h-full p-6 animate-in fade-in zoom-in duration-300">
       
+      {/* Cards Visuais (Estáticos para Demo - Idealmente viriam do Estoque no futuro) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-8">
          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
             <div className="p-3 bg-brand-blue/10 rounded-xl">
                 <FileText className="w-6 h-6 text-brand-blue" />
             </div>
             <div>
-                <p className="text-xs text-brand-slate font-bold uppercase">Total Programado</p>
-                <p className="text-xl font-extrabold text-brand-blue">1.675.822<span className="text-sm font-normal text-gray-400">,1L</span></p>
+                <p className="text-xs text-brand-slate font-bold uppercase">Base de Dados</p>
+                <p className="text-sm font-bold text-brand-blue">Cadastros Operacionais</p>
             </div>
          </div>
          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
             <div className="p-3 bg-green-50 rounded-xl border border-green-100">
-                <Check className="w-6 h-6 text-brand-green" />
+                <Layers className="w-6 h-6 text-brand-green" />
             </div>
             <div>
-                <p className="text-xs text-brand-slate font-bold uppercase">Total Entregue</p>
-                <p className="text-xl font-extrabold text-brand-blue">842.213<span className="text-sm font-normal text-gray-400">,0L</span></p>
+                <p className="text-xs text-brand-slate font-bold uppercase">Estoque Insumos</p>
+                <p className="text-sm font-bold text-brand-blue">Saldos & Reservas</p>
             </div>
          </div>
          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
@@ -193,8 +269,8 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
                 <RefreshCw className="w-6 h-6 text-brand-yellow" />
             </div>
             <div>
-                <p className="text-xs text-brand-slate font-bold uppercase">Disponível</p>
-                <p className="text-xl font-extrabold text-brand-blue">707.937<span className="text-sm font-normal text-gray-400">,0L</span></p>
+                <p className="text-xs text-brand-slate font-bold uppercase">Sincronização</p>
+                <p className="text-sm font-bold text-brand-blue">Automática (Cloud)</p>
             </div>
          </div>
       </div>
@@ -205,19 +281,19 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
            {loading ? (
              <CloudDownload className="w-16 h-16 text-brand-blue animate-pulse" />
            ) : (
-             <FileText className="w-16 h-16 text-brand-blue" />
+             <RefreshCw className="w-16 h-16 text-brand-blue" />
            )}
         </div>
       </div>
       
-      <h2 className="text-2xl font-extrabold text-brand-blue mb-2 text-center">Sincronizar Cadastros</h2>
+      <h2 className="text-2xl font-extrabold text-brand-blue mb-2 text-center">Sincronizar Sistema</h2>
       
       {loading ? (
-        <div className="flex flex-col items-center mb-10">
+        <div className="flex flex-col items-center mb-10 w-full max-w-xs">
            <p className="text-brand-slate text-center text-sm font-medium mb-2">
-             Sincronizando com a base de dados...
+             {syncStatus || "Processando dados..."}
            </p>
-           <div className="w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+           <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
              <div className="h-full bg-brand-blue animate-[loading_1.5s_ease-in-out_infinite]"></div>
            </div>
            <style>{`
@@ -230,18 +306,18 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
         </div>
       ) : (
         <p className="text-brand-slate text-center mb-8 max-w-xs text-sm leading-relaxed font-medium">
-          Sincronize para baixar a versão mais recente ou faça o upload manual.
+          Sincronize para baixar as últimas versões de Cadastros e Estoque de Insumos.
         </p>
       )}
 
       {/* Sync Button */}
       <button 
-        onClick={loadDefaultSheet}
+        onClick={loadCloudData}
         disabled={loading}
         className="mb-4 w-full max-w-xs flex items-center justify-center gap-2 px-6 py-3.5 bg-white border border-gray-300 text-brand-blue font-bold rounded-xl shadow-sm hover:bg-gray-50 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-        Sincronizar Agora
+        Sincronizar Tudo
       </button>
 
       <div className="relative flex items-center py-4 w-full max-w-xs">
@@ -263,7 +339,7 @@ const ImportView: React.FC<ImportViewProps> = ({ onDataLoaded }) => {
           ) : (
              <>
                <Upload className="w-6 h-6 text-brand-slate mb-2 group-hover:text-brand-blue transition-colors" />
-               <span className="text-brand-slate font-bold text-sm group-hover:text-brand-blue">Upload Manual</span>
+               <span className="text-brand-slate font-bold text-sm group-hover:text-brand-blue">Upload Manual (Base)</span>
              </>
           )}
           <input 

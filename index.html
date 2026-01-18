@@ -8,8 +8,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Smart Calda - Solicitação de KPI</title>
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/LOGO.png">
-    <link rel="icon" type="image/png" href="https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/LOGO.png">
+    <link rel="apple-touch-icon" href="https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/kpi.png">
+    <link rel="icon" type="image/png" href="https://dkozrkzoghhylgvddkze.supabase.co/storage/v1/object/public/SMART%20CALDA/kpi.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
@@ -26,16 +26,14 @@
                 slate: '#4B5F73', // Secondary Text (Subtitles)
                 yellow: '#EABA00', // Accents/Warnings
               },
-              // Remapeando a escala 'agro' para orbitar o novo Verde (#76B72A)
-              // para manter compatibilidade com classes existentes mas com a nova cor.
               agro: {
                 50: '#F4FBE7', 
                 100: '#E4F6C8',
                 200: '#CBEAA0',
                 300: '#ADDD73',
                 400: '#90CE4B',
-                500: '#76B72A', // A cor solicitada como base
-                600: '#5D9320', // Um pouco mais escuro para hover
+                500: '#76B72A',
+                600: '#5D9320',
                 700: '#477118',
                 800: '#355314',
                 900: '#253B0E',
@@ -43,53 +41,56 @@
               }
             },
             boxShadow: {
-              'soft': '0 4px 20px -2px rgba(5, 45, 81, 0.08)', // Shadow using brand blue
+              'soft': '0 4px 20px -2px rgba(5, 45, 81, 0.08)',
               'up': '0 -4px 20px -2px rgba(5, 45, 81, 0.08)',
             }
           }
         }
       }
     </script>
+    <style>
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4B5F73;
+        border-radius: 3px;
+        opacity: 0.5;
+      }
+      /* Remove highlight on mobile tap */
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Inputs styling adjustment for mobile */
+      input, select {
+        font-size: 16px !important; /* Prevents iOS zoom on focus */
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "xlsx": "https://esm.sh/xlsx@^0.18.5",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react": "https://esm.sh/react@^19.2.3",
     "jspdf": "https://esm.sh/jspdf@^4.0.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "xlsx": "https://esm.sh/xlsx@^0.18.5",
     "jspdf-autotable": "https://esm.sh/jspdf-autotable@^5.0.7"
   }
 }
 </script>
-<style>
-  /* Custom scrollbar for webkit */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #4B5F73;
-    border-radius: 3px;
-    opacity: 0.5;
-  }
-  /* Remove highlight on mobile tap */
-  * {
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  /* Inputs styling adjustment for mobile */
-  input, select {
-    font-size: 16px !important; /* Prevents iOS zoom on focus */
-  }
-</style>
 </head>
   <body class="bg-gray-100 text-brand-blue font-sans antialiased selection:bg-brand-green selection:text-white">
     <div id="root"></div>
+    <!-- Entry point para o Vite -->
+    <script type="module" src="/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
